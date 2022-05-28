@@ -1,0 +1,6 @@
+.packages
+pubspec.lock
+.fvm/
+.dart_tool/
+.vscode/
+.DS_Store

@@ -1,0 +1,18 @@
+name: steganograph
+description: A dart package that provides steganography implementation.
+
+publish_to: 'none'
+
+version: 1.0.0
+
+environment:
+  sdk: ">=2.12.0 <3.0.0"
+dependencies: 
+  image: ^3.2.0
+  image_size_getter: ^2.1.1
+  igodo:
+    git:
+      url: git@github.com:Crazelu/igodo.git
+      ref: main
+
+
