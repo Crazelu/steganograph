@@ -24,7 +24,7 @@ import 'package:steganograph/steganograph.dart';
 ## Embed messages
 
 ```dart
-//this returns bytes that can be written into a *png* File
+//this returns bytes that can be written into a *PNG* File
 //to build the resulting image unaltered in RGBA channels
 final bytes = await Steganograph.encode(
     image: File('sample_image.jpg'),
@@ -48,7 +48,7 @@ final bytes = await Steganograph.encode(
 Embedded messages can be encrypted to securely share images with embedded messages wherever without revealing the hidden content.
 
 ```dart
-//this returns bytes that can be written into a *png* File
+//this returns bytes that can be written into a *PNG* File
 //to build the resulting image unaltered in RGBA channels
 final bytes = await Steganograph.encode(
     image: File('sample_image.png'),
