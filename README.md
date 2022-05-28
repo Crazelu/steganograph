@@ -1,7 +1,8 @@
 # steganograph
 
 ***
-Steganography powered by Dart. Embed texts in images and share them encrypted with anyone securely.
+Steganography powered by Dart!
+Embed texts in images and share them encrypted with anyone securely. All without altering the RGBA channels of the image.
 
 ## Install
 
