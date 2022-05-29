@@ -23,6 +23,23 @@ class Util {
     }
   }
 
+  static String generatePath(String path) {
+    try {
+      final fileName = DateTime.now().toIso8601String() + ".png";
+
+      final splitPath = path.split(Platform.pathSeparator);
+      splitPath.removeLast();
+
+      if (splitPath.isEmpty) {
+        return fileName;
+      }
+
+      return splitPath.join("/") + "/$fileName";
+    } catch (e) {
+      throw SteganographFileException("Invalid file: $path");
+    }
+  }
+
   static const List<String> _allowedExtensions = [
     "png",
     "jpg",

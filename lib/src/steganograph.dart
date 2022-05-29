@@ -9,16 +9,22 @@ import 'package:steganograph/src/exceptions.dart';
 import 'package:steganograph/src/utils.dart';
 
 class Steganograph {
-  ///Writes [message] into [image] without altering rgb channels.
+  ///Writes [message] into [image] without altering rgb channels
+  ///and returns image file with message embedded.
+  ///
   ///If [encryptionKey] is provided, [message] is encrypted
   ///symmetrically with it.
   ///
   ///Supported file types for encoding include `png` and `jpg`.
   ///
-  ///Resulting bytes list represents a PNG image.
-  static Future<List<int>?> encode({
+  ///If [outputFilePath] is specified, the resulting image will
+  ///be saved at that path.
+  ///A unique path is generated in the same directory as [image]
+  ///if [outputFilePath] is not specified or if it is invalid.
+  static Future<File?> encode({
     required File image,
     required String message,
+    String? outputFilePath,
     String? encryptionKey,
   }) async {
     _assertIsImage(image);
@@ -36,7 +42,7 @@ class Steganograph {
         );
       }
 
-      final im = Image.fromBytes(
+      final imageWithHiddenMessage = Image.fromBytes(
         size.width,
         size.height,
         await encodedImage!.getBytes(),
@@ -45,7 +51,17 @@ class Steganograph {
         },
       );
 
-      return encodePng(im);
+      final imageBytes = encodePng(imageWithHiddenMessage);
+
+      final file = File(
+        _normalizeOutputPath(
+          inputFilePath: image.path,
+          outputPath: outputFilePath,
+        ),
+      );
+
+      await file.writeAsBytes(imageBytes);
+      return file;
     } catch (e) {
       _handleException(e);
     }
@@ -127,5 +143,17 @@ class Steganograph {
         trace,
       );
     }
+  }
+
+  static String _normalizeOutputPath({
+    required String inputFilePath,
+    String? outputPath,
+  }) {
+    try {
+      if (Util.getExtension(outputPath!) == "png") {
+        return outputPath;
+      }
+    } catch (e) {}
+    return Util.generatePath(inputFilePath);
   }
 }
