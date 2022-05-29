@@ -1,11 +1,14 @@
 // ignore_for_file: body_might_complete_normally_nullable
 
 import 'dart:io';
+import 'package:crypton/crypton.dart';
 import 'package:igodo/igodo.dart';
 import 'package:image/image.dart';
 import 'package:image_size_getter/file_input.dart';
 import 'package:image_size_getter/image_size_getter.dart';
+import 'package:steganograph/src/encryption_type.dart';
 import 'package:steganograph/src/exceptions.dart';
+import 'package:steganograph/src/keypair.dart';
 import 'package:steganograph/src/utils.dart';
 
 class Steganograph {
@@ -13,9 +16,12 @@ class Steganograph {
   ///and returns image file with message embedded.
   ///
   ///If [encryptionKey] is provided, [message] is encrypted
-  ///symmetrically with it.
+  ///symmetrically or asymmetrically depending on specified [encryptionType].
   ///
-  ///Supported file types for encoding include `png` and `jpg`.
+  ///For [EncryptionType.asymmetric], make sure to pass the public
+  ///key from [generateKeypair] as [encryptionKey].
+  ///
+  ///Supported file types for encoding include `png`, `jpeg` and `jpg`.
   ///
   ///If [outputFilePath] is specified, the resulting image will
   ///be saved at that path.
@@ -24,6 +30,7 @@ class Steganograph {
   static Future<File?> encode({
     required File image,
     required String message,
+    EncryptionType encryptionType = EncryptionType.symmetric,
     String? outputFilePath,
     String? encryptionKey,
   }) async {
@@ -36,9 +43,10 @@ class Steganograph {
       String messageToEmbed = message;
 
       if (encryptionKey != null) {
-        messageToEmbed = IgodoEncryption.encryptSymmetric(
-          messageToEmbed,
-          encryptionKey,
+        messageToEmbed = _encrypt(
+          key: encryptionKey,
+          type: encryptionType,
+          message: messageToEmbed,
         );
       }
 
@@ -69,10 +77,15 @@ class Steganograph {
 
   ///Extracts embedded text from image.
   ///If [encryptionKey] is provided, resulting embedded text (if any)
-  ///will be assumed as encoded from [encode] hence [decode] will try to decrypt it with
-  ///[encryptionKey].
+  ///will be assumed as encrypted from [encode] hence [decode] will
+  ///try to decrypt it with [encryptionKey] symmetrically
+  ///or asymmetrically depending on specified [encryptionType].
+  ///
+  ///For [EncryptionType.asymmetric], make sure to pass the private
+  ///key from [generateKeypair] as [encryptionKey].
   static Future<String?> decode({
     required File image,
+    EncryptionType encryptionType = EncryptionType.symmetric,
     String? encryptionKey,
   }) async {
     try {
@@ -81,12 +94,16 @@ class Steganograph {
 
       final textualData = decodedImage!.textData![Util.SECRET_KEY];
 
-      return encryptionKey != null
-          ? IgodoEncryption.decryptSymmetric(
-              textualData!,
-              encryptionKey,
-            )
-          : textualData;
+      if (encryptionKey != null &&
+          textualData != null &&
+          textualData.isNotEmpty) {
+        return _decrypt(
+          type: encryptionType,
+          key: encryptionKey,
+          message: textualData,
+        );
+      }
+      return textualData;
     } catch (e) {
       _handleException(e);
     }
@@ -155,5 +172,37 @@ class Steganograph {
       }
     } catch (e) {}
     return Util.generatePath(inputFilePath);
+  }
+
+  static String _encrypt({
+    required EncryptionType type,
+    required String key,
+    required String message,
+  }) {
+    if (type == EncryptionType.symmetric) {
+      return IgodoEncryption.encryptSymmetric(message, key);
+    }
+    final rsaPublicKey = RSAPublicKey.fromPEM(key);
+    return rsaPublicKey.encrypt(message);
+  }
+
+  static String _decrypt({
+    required EncryptionType type,
+    required String key,
+    required String message,
+  }) {
+    if (type == EncryptionType.symmetric) {
+      return IgodoEncryption.decryptSymmetric(message, key);
+    }
+    final rsaPrivateKey = RSAPrivateKey.fromPEM(key);
+    return rsaPrivateKey.decrypt(message);
+  }
+
+  static SteganographKeypair generateKeypair() {
+    final rsaKeypair = RSAKeypair.fromRandom();
+    return SteganographKeypair(
+      publicKey: rsaKeypair.publicKey.toPEM(),
+      privateKey: rsaKeypair.privateKey.toPEM(),
+    );
   }
 }
