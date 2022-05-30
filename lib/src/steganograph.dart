@@ -130,7 +130,7 @@ class Steganograph {
     }
   }
 
-  ///Ensures image is a png to take advantage of the iText chunk.
+  ///Ensures image is a png to take advantage of the tEXt chunk.
   ///Encodes to png if necessary.
   static Future<Image?> _encodeToPng(File image) async {
     try {
@@ -162,6 +162,9 @@ class Steganograph {
     }
   }
 
+  ///Generates a file path in the same directory as [inputFilePath]
+  ///if [outputPath] is `null` or isn't a valid `PNG` file path.
+  ///Otherwise, [outputPath] is returned.
   static String _normalizeOutputPath({
     required String inputFilePath,
     String? outputPath,
@@ -198,6 +201,8 @@ class Steganograph {
     return rsaPrivateKey.decrypt(message);
   }
 
+  ///Generates a keypair with public and private keys for
+  ///asymmetric encryption.
   static SteganographKeypair generateKeypair() {
     final rsaKeypair = RSAKeypair.fromRandom();
     return SteganographKeypair(
