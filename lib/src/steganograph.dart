@@ -27,7 +27,7 @@ class Steganograph {
   ///be saved at that path.
   ///A unique path is generated in the same directory as [image]
   ///if [outputFilePath] is not specified or if it is invalid.
-  static Future<File?> encode({
+  static Future<List<int>?> encode({
     required File image,
     required String message,
     EncryptionType encryptionType = EncryptionType.symmetric,
@@ -61,15 +61,15 @@ class Steganograph {
 
       final imageBytes = encodePng(imageWithHiddenMessage);
 
-      final file = File(
-        _normalizeOutputPath(
-          inputFilePath: image.path,
-          outputPath: outputFilePath,
-        ),
-      );
+      // final file = File(
+      //   _normalizeOutputPath(
+      //     inputFilePath: image.path,
+      //     outputPath: outputFilePath,
+      //   ),
+      // );
 
-      await file.writeAsBytes(imageBytes);
-      return file;
+      // await file.writeAsBytes(imageBytes);
+      return imageBytes;
     } catch (e) {
       _handleException(e);
     }
