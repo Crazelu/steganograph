@@ -206,8 +206,8 @@ class Steganograph {
   static SteganographKeypair generateKeypair() {
     final rsaKeypair = RSAKeypair.fromRandom();
     return SteganographKeypair(
-      publicKey: rsaKeypair.publicKey.toPEM(),
-      privateKey: rsaKeypair.privateKey.toPEM(),
+      publicKey: rsaKeypair.publicKey.toFormattedPEM(),
+      privateKey: rsaKeypair.privateKey.toFormattedPEM(),
     );
   }
 }
