@@ -1,5 +1,6 @@
 // ignore_for_file: body_might_complete_normally_nullable
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:crypton/crypton.dart';
 import 'package:igodo/igodo.dart';
@@ -27,9 +28,13 @@ class Steganograph {
   ///be saved at that path.
   ///A unique path is generated in the same directory as [image]
   ///if [outputFilePath] is not specified or if it is invalid.
+  ///
+  ///[unencryptedPrefix] if specified, is appended unencrypted to the encrypted [message]
+  ///(if encryption is required) in the format `"{unencryptedPrefix : encryptedMessage}"`.
   static Future<File?> encode({
     required File image,
     required String message,
+    String? unencryptedPrefix,
     EncryptionType encryptionType = EncryptionType.symmetric,
     String? outputFilePath,
     String? encryptionKey,
@@ -48,6 +53,10 @@ class Steganograph {
           type: encryptionType,
           message: messageToEmbed,
         );
+      }
+
+      if (unencryptedPrefix != null) {
+        messageToEmbed = jsonEncode({unencryptedPrefix: messageToEmbed});
       }
 
       final imageWithHiddenMessage = Image.fromBytes(
@@ -83,8 +92,12 @@ class Steganograph {
   ///
   ///For [EncryptionType.asymmetric], make sure to pass the private
   ///key from [generateKeypair] as [encryptionKey].
+  ///
+  ///[unencryptedPrefix] if specified, is processed and removed from the
+  ///embedded message before decryption is performed.
   static Future<String?> decode({
     required File image,
+    String? unencryptedPrefix,
     EncryptionType encryptionType = EncryptionType.symmetric,
     String? encryptionKey,
   }) async {
@@ -97,21 +110,23 @@ class Steganograph {
       if (encryptionKey != null &&
           textualData != null &&
           textualData.isNotEmpty) {
-        return _decrypt(
+        return _handleDecryption(
           type: encryptionType,
           key: encryptionKey,
           message: textualData,
+          unencryptedPrefix: unencryptedPrefix,
         );
       }
       return textualData;
-    } catch (e) {
-      _handleException(e);
+    } catch (e, trace) {
+      _handleException(e, trace);
     }
   }
 
-  static void _handleException(Object e) {
+  static void _handleException(Object e, [StackTrace? trace]) {
     if (e is SteganographException) throw e;
     print(e);
+    if (trace != null) print(trace);
   }
 
   static void _assertIsImage(File image) {
@@ -185,8 +200,51 @@ class Steganograph {
     if (type == EncryptionType.symmetric) {
       return IgodoEncryption.encryptSymmetric(message, key);
     }
-    final rsaPublicKey = RSAPublicKey.fromPEM(key);
+    final rsaPublicKey = RSAPublicKey.fromString(key);
     return rsaPublicKey.encrypt(message);
+  }
+
+  static String _handleDecryption({
+    required EncryptionType type,
+    required String key,
+    required String message,
+    String? unencryptedPrefix,
+  }) {
+    if (unencryptedPrefix != null)
+      return _verifyUnencryptedPrefixAndDecrypt(
+        type: type,
+        key: key,
+        message: message,
+        unencryptedPrefix: unencryptedPrefix,
+      );
+
+    return _decrypt(
+      type: type,
+      key: key,
+      message: message,
+    );
+  }
+
+  static String _verifyUnencryptedPrefixAndDecrypt({
+    required EncryptionType type,
+    required String key,
+    required String message,
+    required String unencryptedPrefix,
+  }) {
+    String encryptedMessage = message;
+    if (unencryptedPrefix.isNotEmpty) {
+      final decodedMessage =
+          jsonDecode(encryptedMessage) as Map<String, dynamic>;
+      if (decodedMessage.keys.first == unencryptedPrefix) {
+        encryptedMessage = (decodedMessage).values.first;
+        return _decrypt(
+          type: type,
+          key: key,
+          message: encryptedMessage,
+        );
+      }
+    }
+    return "";
   }
 
   static String _decrypt({
@@ -197,7 +255,7 @@ class Steganograph {
     if (type == EncryptionType.symmetric) {
       return IgodoEncryption.decryptSymmetric(message, key);
     }
-    final rsaPrivateKey = RSAPrivateKey.fromPEM(key);
+    final rsaPrivateKey = RSAPrivateKey.fromString(key);
     return rsaPrivateKey.decrypt(message);
   }
 
@@ -206,8 +264,8 @@ class Steganograph {
   static SteganographKeypair generateKeypair() {
     final rsaKeypair = RSAKeypair.fromRandom();
     return SteganographKeypair(
-      publicKey: rsaKeypair.publicKey.toFormattedPEM(),
-      privateKey: rsaKeypair.privateKey.toFormattedPEM(),
+      publicKey: rsaKeypair.publicKey.toString(),
+      privateKey: rsaKeypair.privateKey.toString(),
     );
   }
 }
