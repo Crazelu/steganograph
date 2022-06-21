@@ -1,7 +1,8 @@
 # steganograph
 
 ***
-Steganography powered by Dart!
+A Dart package for carrying out steganography equipped with encryption for an additional layer of security.
+
 Embed texts in images and share them encrypted with anyone securely. All without altering the RGBA channels of the image.
 
 ## Install
@@ -27,7 +28,7 @@ import 'package:steganograph/steganograph.dart';
 ```dart
 //this returns a PNG File with the resulting image unaltered
 //except now it has some secret embedded text
-final file = await Steganograph.encode(
+File? file = await Steganograph.encode(
     image: File('sample_image.jpg'),
     message: 'Some secret message',
     outputFilePath: 'result.png',
@@ -38,7 +39,7 @@ final file = await Steganograph.encode(
 ## Decode and extract embedded messages
 
 ```dart
- final embeddedMessage = await Steganograph.decode(
+ String? embeddedMessage = await Steganograph.decode(
     image: File('result.png'),
   );
 ```
@@ -52,35 +53,33 @@ Embedded messages can be encrypted to securely share images with secret messages
 ```dart
 //this returns a PNG File with the resulting image unaltered
 //except now it has some secret embedded text
-final file = await Steganograph.encode(
+File? file = await Steganograph.encode(
     image: File('sample_image.png'),
     message: 'Some secret message',
     encryptionKey: ENCRYPTION_KEY,
     outputFilePath: 'result.png',
   );
-
 ```
 
 ```dart
 //decode with same encryption key used to encode 
 //to retrieve encrypted message
- final embeddedMessage = await Steganograph.decode(
+ String? embeddedMessage = await Steganograph.decode(
     image: File('result.png'),
     encryptionKey: ENCRYPTION_KEY,
   );
-
 ```
 
 ## Asymmetric Encryption
 
 ```dart
 //generate keypair
-final keypair = Steganograph.generateKeypair();
+SteganographKeypair keypair = Steganograph.generateKeypair();
 ```
 
 ```dart
 //Encode image with public key from keypair
-final file = await Steganograph.encode(
+File? file = await Steganograph.encode(
     image: File('sample_image.png'),
     message: 'Some secret message',
     encryptionKey: keypair.publicKey,
@@ -91,12 +90,10 @@ final file = await Steganograph.encode(
 
 ```dart
 //Decode image with private key from keypair to retrieve message
-final file = await Steganograph.encode(
-    image: File('sample_image.png'),
-    message: 'Some secret message',
-    encryptionKey: keypair.publicKey,
+String? embeddedMessage = await Steganograph.decode(
+    image: File(file!.path),
+    encryptionKey: keypair.privateKey,
     encryptionType: EncryptionType.asymmetric,
-    outputFilePath: 'result.png',
   );
 ```
 
