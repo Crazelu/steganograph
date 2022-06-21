@@ -25,8 +25,8 @@ import 'package:steganograph/steganograph.dart';
 ## Embed messages
 
 ```dart
-//this returns a *PNG* File with the resulting image unaltered
-//except now they have some hidden embedded text
+//this returns a PNG File with the resulting image unaltered
+//except now it has some secret embedded text
 final file = await Steganograph.encode(
     image: File('sample_image.jpg'),
     message: 'Some secret message',
@@ -43,15 +43,15 @@ final file = await Steganograph.encode(
   );
 ```
 
-## Using encryption
+# Using encryption
 
-Embedded messages can be encrypted to securely share images with embedded messages wherever without revealing the hidden content.
+Embedded messages can be encrypted to securely share images with secret messages wherever without revealing the hidden content.
 
-# Symmetric Encryption
+## Symmetric Encryption
 
 ```dart
-//this returns a *PNG* File with the resulting image unaltered
-//except now they have some hidden embedded text
+//this returns a PNG File with the resulting image unaltered
+//except now it has some secret embedded text
 final file = await Steganograph.encode(
     image: File('sample_image.png'),
     message: 'Some secret message',
@@ -71,7 +71,7 @@ final file = await Steganograph.encode(
 
 ```
 
-# Asymmetric Encryption
+## Asymmetric Encryption
 
 ```dart
 //generate keypair
