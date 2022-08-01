@@ -3,6 +3,7 @@ import 'package:steganograph/src/exceptions.dart';
 
 class Util {
   static const SECRET_KEY = "x-encrypted-message";
+  static const FILE_EXTENSION_KEY = "x-file-extension";
 
   static bool isImage(String path) {
     return _allowedExtensions.contains(
@@ -23,9 +24,9 @@ class Util {
     }
   }
 
-  static String generatePath(String path) {
+  static String generatePath(String path, [String ext = "png"]) {
     try {
-      final fileName = DateTime.now().toIso8601String() + ".png";
+      final fileName = DateTime.now().toIso8601String() + ".$ext";
 
       final splitPath = path.split(Platform.pathSeparator);
       splitPath.removeLast();

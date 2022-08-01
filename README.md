@@ -1,9 +1,7 @@
 # steganograph
 
 ***
-A Dart package for carrying out steganography equipped with encryption for an additional layer of security.
-
-Embed texts in images and share them encrypted with anyone securely. All without altering the RGBA channels of the image.
+steganograph is a purely Dart package which supports hiding mesages and files in images with an option to encrypt embedded data for more security.
 
 ## Install
 
@@ -23,10 +21,10 @@ dependencies:
 import 'package:steganograph/steganograph.dart';
 ```
 
-## Embed messages
+## Embed messages or files
 
 ```dart
-//this returns a PNG File with the resulting image unaltered
+//this returns an image file with the resulting image unaltered
 //except now it has some secret embedded text
 File? file = await Steganograph.encode(
     image: File('sample_image.jpg'),
@@ -34,14 +32,27 @@ File? file = await Steganograph.encode(
     outputFilePath: 'result.png',
   );
 
+//this returns an image file with the resulting image unaltered
+//except now it has some secret embedded file
+File? encodedFile = await Steganograph.encodeFile(
+    image: File('sample_image.jpg'),
+    fileToEmbed: File('sample_file.pdf'),
+    outputFilePath: 'result.png',
+  );
+
 ```
 
-## Decode and extract embedded messages
+## Decode and extract embedded messages or files
 
 ```dart
- String? embeddedMessage = await Steganograph.decode(
-    image: File('result.png'),
-  );
+String? embeddedMessage = await Steganograph.decode(
+  image: File('result.png'),
+);
+
+final embeddedFile = await Steganograph.decodeFile(
+  image: File('result.png'),
+);
+
 ```
 
 # Using encryption
@@ -51,8 +62,7 @@ Embedded messages can be encrypted to securely share images with secret messages
 ## Symmetric Encryption
 
 ```dart
-//this returns a PNG File with the resulting image unaltered
-//except now it has some secret embedded text
+//Encode image with an encryption key
 File? file = await Steganograph.encode(
     image: File('sample_image.png'),
     message: 'Some secret message',
@@ -100,7 +110,7 @@ String? embeddedMessage = await Steganograph.decode(
 
 ## Allowed file types
 
-Currently, you can embed messages in:
+Currently, you can embed messages and any kind of file in:
 * PNG images
 * JPEG, JPG images
 

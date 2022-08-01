@@ -13,6 +13,136 @@ import 'package:steganograph/src/keypair.dart';
 import 'package:steganograph/src/utils.dart';
 
 class Steganograph {
+  ///Embeds [fileToEmbed] in [image] and returns resulting image file.
+  ///
+  ///If [encryptionKey] is provided, [fileToEmbed] is encrypted
+  ///symmetrically or asymmetrically depending on specified [encryptionType].
+  ///
+  ///For [EncryptionType.asymmetric], make sure to pass the public
+  ///key from [generateKeypair] as [encryptionKey].
+  ///
+  ///Supported extensions for [image] include `png`, `jpeg` and `jpg`.
+  ///
+  ///If [outputFilePath] is specified, the resulting image will
+  ///be saved at that path.
+  ///A unique path is generated in the same directory as [image]
+  ///if [outputFilePath] is not specified or if it is invalid.
+  ///
+  ///[unencryptedPrefix] if specified, is appended unencrypted to the encrypted [fileToEmbed]
+  ///(if encryption is required) in the format `"{unencryptedPrefix : encryptedFile}"`.
+  static Future<File?> encodeFile({
+    required File image,
+    required File fileToEmbed,
+    String? unencryptedPrefix,
+    EncryptionType encryptionType = EncryptionType.symmetric,
+    String? outputFilePath,
+    String? encryptionKey,
+  }) async {
+    _assertIsImage(image);
+    try {
+      final encodedImage = await _encodeToPng(image);
+
+      final size = ImageSizeGetter.getSize(FileInput(image));
+
+      String messageToEmbed = base64Encode(fileToEmbed.readAsBytesSync());
+      String extension = Util.getExtension(fileToEmbed.path);
+
+      if (encryptionKey != null) {
+        messageToEmbed = _encrypt(
+          key: encryptionKey,
+          type: encryptionType,
+          message: messageToEmbed,
+        );
+      }
+
+      if (encryptionKey != null) {
+        extension = _encrypt(
+          key: encryptionKey,
+          type: encryptionType,
+          message: extension,
+        );
+      }
+
+      if (unencryptedPrefix != null) {
+        messageToEmbed = jsonEncode({unencryptedPrefix: messageToEmbed});
+      }
+
+      final imageWithHiddenMessage = Image.fromBytes(
+        size.width,
+        size.height,
+        await encodedImage!.getBytes(),
+        textData: {
+          Util.SECRET_KEY: messageToEmbed,
+          Util.FILE_EXTENSION_KEY: extension,
+        },
+      );
+
+      final imageBytes = encodePng(imageWithHiddenMessage);
+
+      final file = File(
+        _normalizeOutputPath(
+          inputFilePath: image.path,
+          outputPath: outputFilePath,
+        ),
+      );
+
+      await file.writeAsBytes(imageBytes);
+      return file;
+    } catch (e) {
+      _handleException(e);
+    }
+  }
+
+  ///Extracts embedded file from [image].
+  ///If [encryptionKey] is provided, resulting embedded file (if any)
+  ///will be assumed as encrypted from [encodeFile] hence [decodeFile] will
+  ///try to decrypt it with [encryptionKey] symmetrically
+  ///or asymmetrically depending on specified [encryptionType].
+  ///
+  ///For [EncryptionType.asymmetric], make sure to pass the private
+  ///key from [generateKeypair] as [encryptionKey].
+  ///
+  ///[unencryptedPrefix] if specified, is processed and removed from the
+  ///embedded file before decryption is performed.
+  static Future<File?> decodeFile({
+    required File image,
+    String? unencryptedPrefix,
+    EncryptionType encryptionType = EncryptionType.symmetric,
+    String? encryptionKey,
+  }) async {
+    try {
+      _assertIsPng(image);
+      final decodedImage = await decodePng(await image.readAsBytes());
+
+      String encodedFile = decodedImage!.textData![Util.SECRET_KEY] ?? "";
+      String extension = decodedImage.textData![Util.FILE_EXTENSION_KEY] ?? "";
+
+      if (encodedFile.isEmpty || extension.isEmpty) return null;
+
+      if (encryptionKey != null) {
+        encodedFile = _handleDecryption(
+          type: encryptionType,
+          key: encryptionKey,
+          message: encodedFile,
+          unencryptedPrefix: unencryptedPrefix,
+        );
+      }
+      if (encryptionKey != null) {
+        extension = _handleDecryption(
+          type: encryptionType,
+          key: encryptionKey,
+          message: extension,
+        );
+      }
+      final file = File(Util.generatePath(image.path, extension));
+      final bytes = base64Decode(encodedFile);
+      await file.writeAsBytes(bytes);
+      return file;
+    } catch (e, trace) {
+      _handleException(e, trace);
+    }
+  }
+
   ///Writes [message] into [image] without altering rgb channels
   ///and returns image file with message embedded.
   ///
