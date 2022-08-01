@@ -3,7 +3,7 @@
 ***
 steganograph is a purely Dart package which supports hiding mesages and files in images with an option to encrypt embedded data for more security.
 
-## Install
+## Install 🚀
 
 In the `pubspec.yaml` of your Flutter/Dart project, add the following dependency:
 
@@ -15,13 +15,13 @@ dependencies:
       ref: main
 ```
 
-## Import the package in your project:
+## Import the package in your project 📥
 
 ```dart
 import 'package:steganograph/steganograph.dart';
 ```
 
-## Embed messages or files
+## Embed messages or files 🔏
 
 ```dart
 //this returns an image file with the resulting image unaltered
@@ -42,7 +42,7 @@ File? encodedFile = await Steganograph.encodeFile(
 
 ```
 
-## Decode and extract embedded messages or files
+## Decode and extract embedded messages or files 📨
 
 ```dart
 String? embeddedMessage = await Steganograph.decode(
@@ -55,11 +55,11 @@ final embeddedFile = await Steganograph.decodeFile(
 
 ```
 
-# Using encryption
+# Using encryption 🔐
 
-Embedded messages can be encrypted to securely share images with secret messages wherever without revealing the hidden content.
+Embedded messages/files can be encrypted to securely share images with secret content wherever without revealing said content.
 
-## Symmetric Encryption
+## Symmetric Encryption 🔗
 
 ```dart
 //Encode image with an encryption key
@@ -80,7 +80,7 @@ File? file = await Steganograph.encode(
   );
 ```
 
-## Asymmetric Encryption
+## Asymmetric Encryption ⛓
 
 ```dart
 //generate keypair
@@ -108,13 +108,13 @@ String? embeddedMessage = await Steganograph.decode(
 ```
 
 
-## Allowed file types
+## Allowed file types 🗂
 
 Currently, you can embed messages and any kind of file in:
 * PNG images
 * JPEG, JPG images
 
-## Contributions
+## Contributions 🫱🏾‍🫲🏼
 
 Feel free to contribute to this project.
 
