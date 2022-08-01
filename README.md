@@ -1,7 +1,7 @@
 # steganograph
 
 ***
-steganograph is a purely Dart package which supports hiding mesages and files in images with an option to encrypt embedded data for more security.
+Steganograph is a pure Dart steganography package which supports hiding mesages and files in images with an option to encrypt embedded secrets for more security.
 
 ## Install 🚀
 
