@@ -53,9 +53,7 @@ class Steganograph {
           type: encryptionType,
           message: messageToEmbed,
         );
-      }
 
-      if (encryptionKey != null) {
         extension = _encrypt(
           key: encryptionKey,
           type: encryptionType,
@@ -114,8 +112,8 @@ class Steganograph {
       _assertIsPng(image);
       final decodedImage = await decodePng(await image.readAsBytes());
 
-      String encodedFile = decodedImage!.textData![Util.SECRET_KEY] ?? "";
-      String extension = decodedImage.textData![Util.FILE_EXTENSION_KEY] ?? "";
+      String encodedFile = decodedImage?.textData?[Util.SECRET_KEY] ?? "";
+      String extension = decodedImage?.textData?[Util.FILE_EXTENSION_KEY] ?? "";
 
       if (encodedFile.isEmpty || extension.isEmpty) return null;
 
@@ -126,14 +124,13 @@ class Steganograph {
           message: encodedFile,
           unencryptedPrefix: unencryptedPrefix,
         );
-      }
-      if (encryptionKey != null) {
         extension = _handleDecryption(
           type: encryptionType,
           key: encryptionKey,
           message: extension,
         );
       }
+
       final file = File(Util.generatePath(image.path, extension));
       final bytes = base64Decode(encodedFile);
       await file.writeAsBytes(bytes);
@@ -235,11 +232,11 @@ class Steganograph {
       _assertIsPng(image);
       final decodedImage = await decodePng(await image.readAsBytes());
 
-      final textualData = decodedImage!.textData![Util.SECRET_KEY];
+      final textualData = decodedImage?.textData?[Util.SECRET_KEY];
 
-      if (encryptionKey != null &&
-          textualData != null &&
-          textualData.isNotEmpty) {
+      if (textualData != null &&
+          textualData.isNotEmpty &&
+          encryptionKey != null) {
         return _handleDecryption(
           type: encryptionType,
           key: encryptionKey,
