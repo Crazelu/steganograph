@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:crypton/crypton.dart';
 import 'package:igodo/igodo.dart';
 import 'package:image/image.dart';
@@ -247,6 +248,48 @@ class Steganograph {
       return textualData;
     } catch (e, trace) {
       _handleException(e, trace);
+    }
+  }
+
+  static Future<Uint8List?> encodeBytes({
+    required Uint8List bytes,
+    required String message,
+    String? unencryptedPrefix,
+    EncryptionType encryptionType = EncryptionType.symmetric,
+    String? outputFilePath,
+    String? encryptionKey,
+  }) async {
+    try {
+      final size = ImageSizeGetter.getSize(MemoryInput(bytes));
+
+      String messageToEmbed = message;
+
+      if (encryptionKey != null) {
+        messageToEmbed = _encrypt(
+          key: encryptionKey,
+          type: encryptionType,
+          message: messageToEmbed,
+        );
+      }
+
+      if (unencryptedPrefix != null) {
+        messageToEmbed = jsonEncode({unencryptedPrefix: messageToEmbed});
+      }
+
+      final imageWithHiddenMessage = Image.fromBytes(
+        size.width,
+        size.height,
+        bytes,
+        textData: {
+          Util.SECRET_KEY: messageToEmbed,
+        },
+      );
+
+      final imageBytes = encodePng(imageWithHiddenMessage);
+
+      return Uint8List.fromList(imageBytes);
+    } catch (e) {
+      _handleException(e);
     }
   }
 
