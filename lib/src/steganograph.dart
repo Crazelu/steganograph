@@ -260,7 +260,9 @@ class Steganograph {
     String? encryptionKey,
   }) async {
     try {
-      final size = ImageSizeGetter.getSize(MemoryInput(bytes));
+      final image = decodePng(bytes);
+      final imageBytes = await image!.getBytes();
+      final size = ImageSizeGetter.getSize(MemoryInput(imageBytes));
 
       String messageToEmbed = message;
 
@@ -279,13 +281,13 @@ class Steganograph {
       final imageWithHiddenMessage = Image.fromBytes(
         size.width,
         size.height,
-        bytes,
+        imageBytes,
         textData: {
           Util.SECRET_KEY: messageToEmbed,
         },
       );
 
-      return imageWithHiddenMessage.getBytes();
+      return Uint8List.fromList(encodePng(imageWithHiddenMessage));
     } catch (e, t) {
       _handleException(e, t);
     }
