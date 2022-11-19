@@ -1,7 +1,7 @@
 # steganograph
 
 ***
-Steganograph is a pure Dart steganography package which supports hiding mesages and files in images with an option to encrypt embedded secrets for more security.
+Steganograph is a pure Dart steganography library which supports hiding mesages and files in images with an option to encrypt embedded secrets for more security.
 
 ## Install 🚀
 
@@ -9,10 +9,7 @@ In the `pubspec.yaml` of your Flutter/Dart project, add the following dependency
 
 ```yaml 
 dependencies:
-  steganograph:
-    git:
-      url: git@github.com:Crazelu/steganograph.git
-      ref: main
+  steganograph: ^1.0.0
 ```
 
 ## Import the package in your project 📥
@@ -108,11 +105,11 @@ String? embeddedMessage = await Steganograph.decode(
 ```
 
 
-## Allowed file types 🗂
+## Supported file types 🗂
 
 Currently, you can embed messages and any kind of file in:
 * PNG images
-* JPEG, JPG images
+* JPEG images
 
 ## Contributions 🫱🏾‍🫲🏼
 

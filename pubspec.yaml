@@ -1,7 +1,6 @@
 name: steganograph
-description: A dart package that provides steganography implementation.
-
-publish_to: 'none'
+description: Steganograph is a pure Dart steganography library which supports hiding mesages and files in images with an option to encrypt embedded secrets for more security.
+homepage: https://github.com/Crazelu/steganograph
 
 version: 1.0.0
 
