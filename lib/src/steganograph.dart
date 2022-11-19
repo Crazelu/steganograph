@@ -254,7 +254,7 @@ class Steganograph {
   }
 
   ///Writes [message] into [bytes] without altering rgb channels
-  ///and returns image file with message embedded.
+  ///and returns image bytes with message embedded.
   ///
   ///If [encryptionKey] is provided, [message] is encrypted
   ///symmetrically or asymmetrically depending on specified [encryptionType].
@@ -262,7 +262,7 @@ class Steganograph {
   ///For [EncryptionType.asymmetric], make sure to pass the public
   ///key from [generateKeypair] as [encryptionKey].
   ///
-  ///Only `png` is supported for this operation.
+  ///Only bytes from `png` files are supported for this operation.
   ///
   ///[unencryptedPrefix] if specified, is appended unencrypted to the encrypted [message]
   ///(if encryption is required) in the format `"{unencryptedPrefix : encryptedMessage}"`.
@@ -308,6 +308,7 @@ class Steganograph {
   }
 
   /// {@macro decode}
+  ///Only bytes from `png` files are supported for this operation.
   static Future<String?> decodeBytes({
     required Uint8List bytes,
     String? unencryptedPrefix,
