@@ -11,9 +11,6 @@ dependencies:
   image: ^3.2.0
   image_size_getter: ^2.1.1
   crypton: ^2.0.5
-  igodo:
-    git:
-      url: git@github.com:Crazelu/igodo.git
-      ref: main
+  igodo: ^1.0.0
 
 

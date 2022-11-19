@@ -411,7 +411,7 @@ class Steganograph {
     required String message,
   }) {
     if (type == EncryptionType.symmetric) {
-      return IgodoEncryption.encryptSymmetric(message, key);
+      return Igodo.encrypt(message, key);
     }
     final rsaPublicKey = RSAPublicKey.fromString(key);
     return rsaPublicKey.encrypt(message);
@@ -466,7 +466,7 @@ class Steganograph {
     required String message,
   }) {
     if (type == EncryptionType.symmetric) {
-      return IgodoEncryption.decryptSymmetric(message, key);
+      return Igodo.decrypt(message, key);
     }
     final rsaPrivateKey = RSAPrivateKey.fromString(key);
     return rsaPrivateKey.decrypt(message);
