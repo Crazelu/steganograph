@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:crypton/crypton.dart';
 import 'package:igodo/igodo.dart';
 import 'package:image/image.dart';
@@ -211,6 +212,7 @@ class Steganograph {
     }
   }
 
+  /// {@template decode}
   ///Extracts embedded text from image.
   ///If [encryptionKey] is provided, resulting embedded text (if any)
   ///will be assumed as encrypted from [encode] hence [decode] will
@@ -222,6 +224,7 @@ class Steganograph {
   ///
   ///[unencryptedPrefix] if specified, is processed and removed from the
   ///embedded message before decryption is performed.
+  /// {@endtemplate}
   static Future<String?> decode({
     required File image,
     String? unencryptedPrefix,
@@ -231,6 +234,89 @@ class Steganograph {
     try {
       _assertIsPng(image);
       final decodedImage = await decodePng(await image.readAsBytes());
+
+      final textualData = decodedImage?.textData?[Util.SECRET_KEY];
+
+      if (textualData != null &&
+          textualData.isNotEmpty &&
+          encryptionKey != null) {
+        return _handleDecryption(
+          type: encryptionType,
+          key: encryptionKey,
+          message: textualData,
+          unencryptedPrefix: unencryptedPrefix,
+        );
+      }
+      return textualData;
+    } catch (e, trace) {
+      _handleException(e, trace);
+    }
+  }
+
+  ///Writes [message] into [bytes] without altering rgb channels
+  ///and returns image bytes with message embedded.
+  ///
+  ///If [encryptionKey] is provided, [message] is encrypted
+  ///symmetrically or asymmetrically depending on specified [encryptionType].
+  ///
+  ///For [EncryptionType.asymmetric], make sure to pass the public
+  ///key from [generateKeypair] as [encryptionKey].
+  ///
+  ///Only bytes from `png` files are supported for this operation.
+  ///
+  ///[unencryptedPrefix] if specified, is appended unencrypted to the encrypted [message]
+  ///(if encryption is required) in the format `"{unencryptedPrefix : encryptedMessage}"`.
+  static Future<Uint8List?> encodeBytes({
+    required Uint8List bytes,
+    required String message,
+    String? unencryptedPrefix,
+    EncryptionType encryptionType = EncryptionType.symmetric,
+    String? encryptionKey,
+  }) async {
+    try {
+      final image = decodePng(bytes);
+      final imageBytes = await image!.getBytes();
+      final size = ImageSizeGetter.getSize(MemoryInput(bytes));
+
+      String messageToEmbed = message;
+
+      if (encryptionKey != null) {
+        messageToEmbed = _encrypt(
+          key: encryptionKey,
+          type: encryptionType,
+          message: messageToEmbed,
+        );
+      }
+
+      if (unencryptedPrefix != null) {
+        messageToEmbed = jsonEncode({unencryptedPrefix: messageToEmbed});
+      }
+
+      final imageWithHiddenMessage = Image.fromBytes(
+        size.width,
+        size.height,
+        imageBytes,
+        textData: {
+          Util.SECRET_KEY: messageToEmbed,
+        },
+      );
+
+      return Uint8List.fromList(encodePng(imageWithHiddenMessage));
+    } catch (e) {
+      _handleException(e);
+    }
+  }
+
+  /// {@macro decode}
+  ///Only bytes from `png` files are supported for this operation.
+  static Future<String?> decodeBytes({
+    required Uint8List bytes,
+    String? unencryptedPrefix,
+    EncryptionType encryptionType = EncryptionType.symmetric,
+    String? encryptionKey,
+  }) async {
+    try {
+      final decodedImage = await decodePng(bytes);
 
       final textualData = decodedImage?.textData?[Util.SECRET_KEY];
 
