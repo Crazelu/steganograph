@@ -8,7 +8,7 @@ void main() async {
 
   final file = await Steganograph.encode(
     image: File('example/assets/dogs.jpeg'),
-    message: "Maybe I'm not ok!",
+    message: "Insert some really top secret message here!",
     encryptionKey: ENCRYPTION_KEY,
     outputFilePath: 'example/assets/result.png',
   );
@@ -37,11 +37,12 @@ void main() async {
   print(embeddedFile?.path);
 
   //Encode and decode bytes
-  final bytes = await File('example/assets/test.png').readAsBytes();
+
+  final bytes = await File('example/assets/scribble.png').readAsBytes();
 
   final encodedBytes = await Steganograph.encodeBytes(
     bytes: bytes,
-    message: "Maybe I'm ok!",
+    message: "Insert some really top secret message here!",
     encryptionKey: ENCRYPTION_KEY,
   );
 
