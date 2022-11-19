@@ -288,8 +288,8 @@ class Steganograph {
       final imageBytes = encodePng(imageWithHiddenMessage);
 
       return Uint8List.fromList(imageBytes);
-    } catch (e) {
-      _handleException(e);
+    } catch (e, t) {
+      _handleException(e, t);
     }
   }
 
