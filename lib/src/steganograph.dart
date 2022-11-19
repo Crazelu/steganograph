@@ -285,9 +285,7 @@ class Steganograph {
         },
       );
 
-      final imageBytes = encodePng(imageWithHiddenMessage);
-
-      return Uint8List.fromList(imageBytes);
+      return imageWithHiddenMessage.getBytes();
     } catch (e, t) {
       _handleException(e, t);
     }
