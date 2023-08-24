@@ -3,8 +3,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:aes256gcm/aes256gcm.dart';
 import 'package:crypton/crypton.dart';
-import 'package:igodo/igodo.dart';
 import 'package:image/image.dart';
 import 'package:image_size_getter/file_input.dart';
 import 'package:image_size_getter/image_size_getter.dart';
@@ -49,13 +49,13 @@ class Steganograph {
       String extension = Util.getExtension(fileToEmbed.path);
 
       if (encryptionKey != null) {
-        messageToEmbed = _encrypt(
+        messageToEmbed = await _encrypt(
           key: encryptionKey,
           type: encryptionType,
           message: messageToEmbed,
         );
 
-        extension = _encrypt(
+        extension = await _encrypt(
           key: encryptionKey,
           type: encryptionType,
           message: extension,
@@ -119,13 +119,13 @@ class Steganograph {
       if (encodedFile.isEmpty || extension.isEmpty) return null;
 
       if (encryptionKey != null) {
-        encodedFile = _handleDecryption(
+        encodedFile = await _handleDecryption(
           type: encryptionType,
           key: encryptionKey,
           message: encodedFile,
           unencryptedPrefix: unencryptedPrefix,
         );
-        extension = _handleDecryption(
+        extension = await _handleDecryption(
           type: encryptionType,
           key: encryptionKey,
           message: extension,
@@ -176,7 +176,7 @@ class Steganograph {
       String messageToEmbed = message;
 
       if (encryptionKey != null) {
-        messageToEmbed = _encrypt(
+        messageToEmbed = await _encrypt(
           key: encryptionKey,
           type: encryptionType,
           message: messageToEmbed,
@@ -281,7 +281,7 @@ class Steganograph {
       String messageToEmbed = message;
 
       if (encryptionKey != null) {
-        messageToEmbed = _encrypt(
+        messageToEmbed = await _encrypt(
           key: encryptionKey,
           type: encryptionType,
           message: messageToEmbed,
@@ -405,52 +405,53 @@ class Steganograph {
     return Util.generatePath(inputFilePath);
   }
 
-  static String _encrypt({
+  static Future<String> _encrypt({
     required EncryptionType type,
     required String key,
     required String message,
-  }) {
+  }) async {
     if (type == EncryptionType.symmetric) {
-      return Igodo.encrypt(message, key);
+      return await Aes256Gcm.encrypt(message, key);
+      // return Igodo.encrypt(message, key);
     }
     final rsaPublicKey = RSAPublicKey.fromString(key);
     return rsaPublicKey.encrypt(message);
   }
 
-  static String _handleDecryption({
+  static Future<String> _handleDecryption({
     required EncryptionType type,
     required String key,
     required String message,
     String? unencryptedPrefix,
-  }) {
+  }) async {
     if (unencryptedPrefix != null)
-      return _verifyUnencryptedPrefixAndDecrypt(
+      return await _verifyUnencryptedPrefixAndDecrypt(
         type: type,
         key: key,
         message: message,
         unencryptedPrefix: unencryptedPrefix,
       );
 
-    return _decrypt(
+    return await _decrypt(
       type: type,
       key: key,
       message: message,
     );
   }
 
-  static String _verifyUnencryptedPrefixAndDecrypt({
+  static Future<String> _verifyUnencryptedPrefixAndDecrypt({
     required EncryptionType type,
     required String key,
     required String message,
     required String unencryptedPrefix,
-  }) {
+  }) async {
     String encryptedMessage = message;
     if (unencryptedPrefix.isNotEmpty) {
       final decodedMessage =
           jsonDecode(encryptedMessage) as Map<String, dynamic>;
       if (decodedMessage.keys.first == unencryptedPrefix) {
         encryptedMessage = (decodedMessage).values.first;
-        return _decrypt(
+        return await _decrypt(
           type: type,
           key: key,
           message: encryptedMessage,
@@ -460,13 +461,14 @@ class Steganograph {
     return "";
   }
 
-  static String _decrypt({
+  static Future<String> _decrypt({
     required EncryptionType type,
     required String key,
     required String message,
-  }) {
+  }) async {
     if (type == EncryptionType.symmetric) {
-      return Igodo.decrypt(message, key);
+      return await Aes256Gcm.decrypt(message, key);
+      // return Igodo.decrypt(message, key);
     }
     final rsaPrivateKey = RSAPrivateKey.fromString(key);
     return rsaPrivateKey.decrypt(message);

@@ -11,5 +11,6 @@ dependencies:
   image_size_getter: ^2.1.1
   crypton: ^2.0.5
   igodo: ^1.0.0
+  aes256gcm: ^1.0.1
 
 
