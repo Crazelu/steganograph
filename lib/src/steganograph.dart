@@ -1,484 +1,240 @@
-// ignore_for_file: body_might_complete_normally_nullable
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:crypton/crypton.dart';
-import 'package:igodo/igodo.dart';
 import 'package:image/image.dart';
-import 'package:image_size_getter/file_input.dart';
-import 'package:image_size_getter/image_size_getter.dart';
-import 'package:steganograph/src/encryption_type.dart';
+import 'package:meta/meta.dart';
+import 'package:steganograph/src/binary.dart';
 import 'package:steganograph/src/exceptions.dart';
-import 'package:steganograph/src/keypair.dart';
 import 'package:steganograph/src/utils.dart';
 
+String _terminatingSequence = '#~#';
+String _terminatingSequenceBits = '001000110111111000100011';
+
 class Steganograph {
-  ///Embeds [fileToEmbed] in [image] and returns resulting image file.
-  ///
-  ///If [encryptionKey] is provided, [fileToEmbed] is encrypted
-  ///symmetrically or asymmetrically depending on specified [encryptionType].
-  ///
-  ///For [EncryptionType.asymmetric], make sure to pass the public
-  ///key from [generateKeypair] as [encryptionKey].
-  ///
-  ///Supported extensions for [image] include `png`, `jpeg` and `jpg`.
-  ///
-  ///If [outputFilePath] is specified, the resulting image will
-  ///be saved at that path.
-  ///A unique path is generated in the same directory as [image]
-  ///if [outputFilePath] is not specified or if it is invalid.
-  ///
-  ///[unencryptedPrefix] if specified, is appended unencrypted to the encrypted [fileToEmbed]
-  ///(if encryption is required) in the format `"{unencryptedPrefix : encryptedFile}"`.
-  static Future<File?> encodeFile({
+  /// Terminator used for testing purposes only.
+  @visibleForTesting
+  static String get terminator => _terminatingSequence;
+
+  /// Terminator bits used for testing purposes only.
+  @visibleForTesting
+  static String get terminatorBits => _terminatingSequenceBits;
+
+  /// Sets [terminator] which is used to indicate the end of a message.
+  /// [terminator] is appended to the messages embedded in images by [cloak] and [cloakBytes].
+  /// [terminator] is also used by [uncloak] and [uncloakBytes] to find the end of a message.
+  static void setTerminator(String terminator) {
+    _terminatingSequence = terminator;
+
+    String terminatingSequenceBits = '';
+
+    for (var charCode in utf8.encode(terminator)) {
+      terminatingSequenceBits += Binary.fromBase10(charCode).toString();
+    }
+    _terminatingSequenceBits = terminatingSequenceBits;
+  }
+
+  /// Writes [message] into [image] without altering rgb channels
+  /// and returns image [File] with [message] embedded.
+  static Future<File?> cloak({
     required File image,
-    required File fileToEmbed,
-    String? unencryptedPrefix,
-    EncryptionType encryptionType = EncryptionType.symmetric,
+    required String message,
     String? outputFilePath,
-    String? encryptionKey,
   }) async {
-    _assertIsImage(image);
-    try {
-      final encodedImage = await _encodeToPng(image);
+    final bytes = await image.readAsBytes();
+    final cloakedBytes = await _cloak(bytes: bytes, message: message);
 
-      final size = ImageSizeGetter.getSize(FileInput(image));
+    File? file;
 
-      String messageToEmbed = base64Encode(fileToEmbed.readAsBytesSync());
-      String extension = Util.getExtension(fileToEmbed.path);
-
-      if (encryptionKey != null) {
-        messageToEmbed = _encrypt(
-          key: encryptionKey,
-          type: encryptionType,
-          message: messageToEmbed,
-        );
-
-        extension = _encrypt(
-          key: encryptionKey,
-          type: encryptionType,
-          message: extension,
-        );
-      }
-
-      if (unencryptedPrefix != null) {
-        messageToEmbed = jsonEncode({unencryptedPrefix: messageToEmbed});
-      }
-
-      final imageWithHiddenMessage = Image.fromBytes(
-        size.width,
-        size.height,
-        await encodedImage!.getBytes(),
-        textData: {
-          Util.SECRET_KEY: messageToEmbed,
-          Util.FILE_EXTENSION_KEY: extension,
-        },
-      );
-
-      final imageBytes = encodePng(imageWithHiddenMessage);
-
-      final file = File(
+    if (cloakedBytes != null) {
+      file = File(
         _normalizeOutputPath(
           inputFilePath: image.path,
           outputPath: outputFilePath,
         ),
       );
 
-      await file.writeAsBytes(imageBytes);
-      return file;
-    } catch (e) {
-      _handleException(e);
+      await file.writeAsBytes(cloakedBytes);
     }
+
+    return file;
   }
 
-  ///Extracts embedded file from [image].
-  ///If [encryptionKey] is provided, resulting embedded file (if any)
-  ///will be assumed as encrypted from [encodeFile] hence [decodeFile] will
-  ///try to decrypt it with [encryptionKey] symmetrically
-  ///or asymmetrically depending on specified [encryptionType].
-  ///
-  ///For [EncryptionType.asymmetric], make sure to pass the private
-  ///key from [generateKeypair] as [encryptionKey].
-  ///
-  ///[unencryptedPrefix] if specified, is processed and removed from the
-  ///embedded file before decryption is performed.
-  static Future<File?> decodeFile({
-    required File image,
-    String? unencryptedPrefix,
-    EncryptionType encryptionType = EncryptionType.symmetric,
-    String? encryptionKey,
-  }) async {
-    try {
-      _assertIsPng(image);
-      final decodedImage = await decodePng(await image.readAsBytes());
-
-      String encodedFile = decodedImage?.textData?[Util.SECRET_KEY] ?? "";
-      String extension = decodedImage?.textData?[Util.FILE_EXTENSION_KEY] ?? "";
-
-      if (encodedFile.isEmpty || extension.isEmpty) return null;
-
-      if (encryptionKey != null) {
-        encodedFile = _handleDecryption(
-          type: encryptionType,
-          key: encryptionKey,
-          message: encodedFile,
-          unencryptedPrefix: unencryptedPrefix,
-        );
-        extension = _handleDecryption(
-          type: encryptionType,
-          key: encryptionKey,
-          message: extension,
-        );
-      }
-
-      final file = File(Util.generatePath(image.path, extension));
-      final bytes = base64Decode(encodedFile);
-      await file.writeAsBytes(bytes);
-      return file;
-    } catch (e, trace) {
-      _handleException(e, trace);
-    }
-  }
-
-  ///Writes [message] into [image] without altering rgb channels
-  ///and returns image file with message embedded.
-  ///
-  ///If [encryptionKey] is provided, [message] is encrypted
-  ///symmetrically or asymmetrically depending on specified [encryptionType].
-  ///
-  ///For [EncryptionType.asymmetric], make sure to pass the public
-  ///key from [generateKeypair] as [encryptionKey].
-  ///
-  ///Supported file types for encoding include `png`, `jpeg` and `jpg`.
-  ///
-  ///If [outputFilePath] is specified, the resulting image will
-  ///be saved at that path.
-  ///A unique path is generated in the same directory as [image]
-  ///if [outputFilePath] is not specified or if it is invalid.
-  ///
-  ///[unencryptedPrefix] if specified, is appended unencrypted to the encrypted [message]
-  ///(if encryption is required) in the format `"{unencryptedPrefix : encryptedMessage}"`.
-  static Future<File?> encode({
-    required File image,
+  /// Writes [message] into [imageBytes] without altering rgb channels
+  /// and returns [Uint8List] byte array of the image with [message] embedded.
+  static Future<Uint8List?> cloakBytes({
+    required Uint8List imageBytes,
     required String message,
-    String? unencryptedPrefix,
-    EncryptionType encryptionType = EncryptionType.symmetric,
     String? outputFilePath,
-    String? encryptionKey,
-  }) async {
-    _assertIsImage(image);
-    try {
-      final encodedImage = await _encodeToPng(image);
-
-      final size = ImageSizeGetter.getSize(FileInput(image));
-
-      String messageToEmbed = message;
-
-      if (encryptionKey != null) {
-        messageToEmbed = _encrypt(
-          key: encryptionKey,
-          type: encryptionType,
-          message: messageToEmbed,
-        );
-      }
-
-      if (unencryptedPrefix != null) {
-        messageToEmbed = jsonEncode({unencryptedPrefix: messageToEmbed});
-      }
-
-      final imageWithHiddenMessage = Image.fromBytes(
-        size.width,
-        size.height,
-        await encodedImage!.getBytes(),
-        textData: {
-          Util.SECRET_KEY: messageToEmbed,
-        },
-      );
-
-      final imageBytes = encodePng(imageWithHiddenMessage);
-
-      final file = File(
-        _normalizeOutputPath(
-          inputFilePath: image.path,
-          outputPath: outputFilePath,
-        ),
-      );
-
-      await file.writeAsBytes(imageBytes);
-      return file;
-    } catch (e) {
-      _handleException(e);
-    }
+  }) {
+    return _cloak(bytes: imageBytes, message: message);
   }
 
-  /// {@template decode}
-  ///Extracts embedded text from image.
-  ///If [encryptionKey] is provided, resulting embedded text (if any)
-  ///will be assumed as encrypted from [encode] hence [decode] will
-  ///try to decrypt it with [encryptionKey] symmetrically
-  ///or asymmetrically depending on specified [encryptionType].
-  ///
-  ///For [EncryptionType.asymmetric], make sure to pass the private
-  ///key from [generateKeypair] as [encryptionKey].
-  ///
-  ///[unencryptedPrefix] if specified, is processed and removed from the
-  ///embedded message before decryption is performed.
-  /// {@endtemplate}
-  static Future<String?> decode({
-    required File image,
-    String? unencryptedPrefix,
-    EncryptionType encryptionType = EncryptionType.symmetric,
-    String? encryptionKey,
-  }) async {
-    try {
-      _assertIsPng(image);
-      final decodedImage = await decodePng(await image.readAsBytes());
-
-      final textualData = decodedImage?.textData?[Util.SECRET_KEY];
-
-      if (textualData != null &&
-          textualData.isNotEmpty &&
-          encryptionKey != null) {
-        return _handleDecryption(
-          type: encryptionType,
-          key: encryptionKey,
-          message: textualData,
-          unencryptedPrefix: unencryptedPrefix,
-        );
-      }
-      return textualData;
-    } catch (e, trace) {
-      _handleException(e, trace);
-    }
-  }
-
-  ///Writes [message] into [bytes] without altering rgb channels
-  ///and returns image bytes with message embedded.
-  ///
-  ///If [encryptionKey] is provided, [message] is encrypted
-  ///symmetrically or asymmetrically depending on specified [encryptionType].
-  ///
-  ///For [EncryptionType.asymmetric], make sure to pass the public
-  ///key from [generateKeypair] as [encryptionKey].
-  ///
-  ///Only bytes from `png` files are supported for this operation.
-  ///
-  ///[unencryptedPrefix] if specified, is appended unencrypted to the encrypted [message]
-  ///(if encryption is required) in the format `"{unencryptedPrefix : encryptedMessage}"`.
-  static Future<Uint8List?> encodeBytes({
+  /// Writes [message] into [bytes] without altering rgb channels
+  /// and returns [File] containing image bytes with message embedded.
+  static Future<Uint8List?> _cloak({
     required Uint8List bytes,
     required String message,
-    String? unencryptedPrefix,
-    EncryptionType encryptionType = EncryptionType.symmetric,
-    String? encryptionKey,
   }) async {
     try {
-      final image = decodePng(bytes);
-      final imageBytes = await image!.getBytes();
-      final size = ImageSizeGetter.getSize(MemoryInput(bytes));
+      final cloakMessage = message + _terminatingSequence;
+      final wordLength = cloakMessage.length * 8;
 
-      String messageToEmbed = message;
+      Image? img = await decodeImage(bytes);
 
-      if (encryptionKey != null) {
-        messageToEmbed = _encrypt(
-          key: encryptionKey,
-          type: encryptionType,
-          message: messageToEmbed,
-        );
+      if (img == null) {
+        throw SteganographCloakException('Image format not supported');
       }
 
-      if (unencryptedPrefix != null) {
-        messageToEmbed = jsonEncode({unencryptedPrefix: messageToEmbed});
+      img = img.convert(numChannels: 4);
+
+      final pixelCount = img.height * img.width;
+
+      if (pixelCount < wordLength) {
+        throw SteganographCloakException('Not enough pixels to cloak message');
       }
 
-      final imageWithHiddenMessage = Image.fromBytes(
-        size.width,
-        size.height,
-        imageBytes,
-        textData: {
-          Util.SECRET_KEY: messageToEmbed,
-        },
-      );
+      String cloakMessageInBinary = '';
+      for (var charCode in utf8.encode(cloakMessage)) {
+        cloakMessageInBinary += Binary.fromBase10(charCode).toString();
+      }
 
-      return Uint8List.fromList(encodePng(imageWithHiddenMessage));
+      int round = 0;
+      int nextCharIndex = 0;
+
+      for (var frame in img.frames) {
+        for (final pixel in frame) {
+          if (nextCharIndex == wordLength) {
+            return Uint8List.fromList(encodePng(img));
+          }
+
+          switch (round) {
+            case 0:
+              final red = Binary.fromBase10(pixel.r).lsbSwap(
+                cloakMessageInBinary[nextCharIndex],
+              );
+              pixel.r = Binary.toBase10(red);
+            case 1:
+              final green = Binary.fromBase10(pixel.g).lsbSwap(
+                cloakMessageInBinary[nextCharIndex],
+              );
+              pixel.g = Binary.toBase10(green);
+            case 2:
+              final blue = Binary.fromBase10(pixel.b).lsbSwap(
+                cloakMessageInBinary[nextCharIndex],
+              );
+              pixel.b = Binary.toBase10(blue);
+          }
+
+          nextCharIndex++;
+          round++;
+          if (round > 2) round = 0;
+        }
+      }
+
+      return Uint8List.fromList(encodePng(img));
     } catch (e) {
       _handleException(e);
+      return null;
     }
   }
 
-  /// {@macro decode}
-  ///Only bytes from `png` files are supported for this operation.
-  static Future<String?> decodeBytes({
-    required Uint8List bytes,
-    String? unencryptedPrefix,
-    EncryptionType encryptionType = EncryptionType.symmetric,
-    String? encryptionKey,
-  }) async {
+  /// Extracts embedded text from [image].
+  static Future<String?> uncloak(File image) async {
+    _assertIsPng(image);
+    final bytes = await image.readAsBytes();
+    return _uncloak(bytes);
+  }
+
+  /// Extracts embedded text from [bytes].
+  static String? uncloakBytes(Uint8List bytes) {
+    return _uncloak(bytes);
+  }
+
+  /// Extracts embedded text from [bytes].
+  static String? _uncloak(Uint8List bytes) {
     try {
-      final decodedImage = await decodePng(bytes);
+      Image img = decodePng(bytes)!;
+      String leastSignificantBits = '';
+      String terminator = '';
+      int round = 0;
 
-      final textualData = decodedImage?.textData?[Util.SECRET_KEY];
+      for (var frame in img.frames) {
+        for (final pixel in frame) {
+          if (terminator == _terminatingSequenceBits) {
+            return _getCloakedMessage(leastSignificantBits);
+          }
 
-      if (textualData != null &&
-          textualData.isNotEmpty &&
-          encryptionKey != null) {
-        return _handleDecryption(
-          type: encryptionType,
-          key: encryptionKey,
-          message: textualData,
-          unencryptedPrefix: unencryptedPrefix,
-        );
+          final color = switch (round) {
+            0 => Binary.fromBase10(pixel.r),
+            1 => Binary.fromBase10(pixel.g),
+            _ => Binary.fromBase10(pixel.b),
+          };
+
+          final lsb = color.bits[7];
+          leastSignificantBits += lsb;
+          terminator += lsb;
+
+          if (terminator.length > _terminatingSequenceBits.length) {
+            terminator = terminator.substring(1);
+          }
+
+          round++;
+          if (round > 2) round = 0;
+        }
       }
-      return textualData;
-    } catch (e, trace) {
-      _handleException(e, trace);
+
+      return _getCloakedMessage(leastSignificantBits);
+    } catch (e) {
+      _handleException(e);
+      return null;
     }
   }
 
-  static void _handleException(Object e, [StackTrace? trace]) {
+  /// Extracts cloaked message from [leastSignificantBits];
+  static String? _getCloakedMessage(String leastSignificantBits) {
+    String cloakedMessage = '';
+
+    for (int i = 0; i < leastSignificantBits.length; i += 8) {
+      final bits = leastSignificantBits.substring(i, i + 8);
+      final charCode = Binary.toBase10(Binary(bits));
+      cloakedMessage += String.fromCharCode(charCode);
+    }
+    if (!cloakedMessage.endsWith(_terminatingSequence)) {
+      return null;
+    }
+
+    return cloakedMessage.substring(
+      0,
+      cloakedMessage.length - _terminatingSequence.length,
+    );
+  }
+
+  /// Only rethrow [SteganographException]s.
+  static void _handleException(Object e) {
     if (e is SteganographException) throw e;
-    print(e);
-    if (trace != null) print(trace);
   }
 
-  static void _assertIsImage(File image) {
-    if (!Util.isImage(image.path)) {
-      throw SteganographFileException(
-        "${image.path} is not a supported file type",
-      );
-    }
-  }
-
+  /// Throws [SteganographCloakException] if [image] is not a PNG file.
   static void _assertIsPng(File image) {
-    if (Util.getExtension(image.path) != "png") {
-      throw SteganographDecodingException(
-        "${image.path} is not a supported file type for decoding",
+    if (Util.getExtension(image.path) != 'png') {
+      throw SteganographCloakException(
+        '${image.path} is not a supported file type for decoding',
       );
     }
   }
 
-  ///Ensures image is a png to take advantage of the tEXt chunk.
-  ///Encodes to png if necessary.
-  static Future<Image?> _encodeToPng(File image) async {
-    try {
-      final extension = Util.getExtension(image.path);
-
-      switch (extension) {
-        case "png":
-          return decodePng(await image.readAsBytes());
-        case "jpg":
-        case "jpeg":
-          final jpgImage = decodeJpg(await image.readAsBytes());
-          final size = ImageSizeGetter.getSize(FileInput(image));
-
-          final img = Image.fromBytes(
-            size.width,
-            size.height,
-            jpgImage!.getBytes(),
-          );
-
-          final pngBytes = encodePng(img);
-
-          return decodePng(pngBytes);
-      }
-    } catch (e, trace) {
-      throw SteganographFileException(
-        "${image.path} is not a supported file type",
-        trace,
-      );
-    }
-  }
-
-  ///Generates a file path in the same directory as [inputFilePath]
-  ///if [outputPath] is `null` or isn't a valid `PNG` file path.
-  ///Otherwise, [outputPath] is returned.
+  /// Generates a file path in the same directory as [inputFilePath]
+  /// if [outputPath] is `null` or isn't a valid `PNG` file path.
+  /// Otherwise, [outputPath] is returned.
   static String _normalizeOutputPath({
     required String inputFilePath,
     String? outputPath,
   }) {
     try {
-      if (Util.getExtension(outputPath!) == "png") {
+      if (Util.getExtension(outputPath!) == 'png') {
         return outputPath;
       }
     } catch (e) {}
     return Util.generatePath(inputFilePath);
-  }
-
-  static String _encrypt({
-    required EncryptionType type,
-    required String key,
-    required String message,
-  }) {
-    if (type == EncryptionType.symmetric) {
-      return Igodo.encrypt(message, key);
-    }
-    final rsaPublicKey = RSAPublicKey.fromString(key);
-    return rsaPublicKey.encrypt(message);
-  }
-
-  static String _handleDecryption({
-    required EncryptionType type,
-    required String key,
-    required String message,
-    String? unencryptedPrefix,
-  }) {
-    if (unencryptedPrefix != null)
-      return _verifyUnencryptedPrefixAndDecrypt(
-        type: type,
-        key: key,
-        message: message,
-        unencryptedPrefix: unencryptedPrefix,
-      );
-
-    return _decrypt(
-      type: type,
-      key: key,
-      message: message,
-    );
-  }
-
-  static String _verifyUnencryptedPrefixAndDecrypt({
-    required EncryptionType type,
-    required String key,
-    required String message,
-    required String unencryptedPrefix,
-  }) {
-    String encryptedMessage = message;
-    if (unencryptedPrefix.isNotEmpty) {
-      final decodedMessage =
-          jsonDecode(encryptedMessage) as Map<String, dynamic>;
-      if (decodedMessage.keys.first == unencryptedPrefix) {
-        encryptedMessage = (decodedMessage).values.first;
-        return _decrypt(
-          type: type,
-          key: key,
-          message: encryptedMessage,
-        );
-      }
-    }
-    return "";
-  }
-
-  static String _decrypt({
-    required EncryptionType type,
-    required String key,
-    required String message,
-  }) {
-    if (type == EncryptionType.symmetric) {
-      return Igodo.decrypt(message, key);
-    }
-    final rsaPrivateKey = RSAPrivateKey.fromString(key);
-    return rsaPrivateKey.decrypt(message);
-  }
-
-  ///Generates a keypair with public and private keys for
-  ///asymmetric encryption.
-  static SteganographKeypair generateKeypair() {
-    final rsaKeypair = RSAKeypair.fromRandom();
-    return SteganographKeypair(
-      publicKey: rsaKeypair.publicKey.toString(),
-      privateKey: rsaKeypair.privateKey.toString(),
-    );
   }
 }
