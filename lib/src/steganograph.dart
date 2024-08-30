@@ -190,7 +190,7 @@ class Steganograph {
     }
   }
 
-  /// Extracts cloaked message from [leastSignificantBits];
+  /// Extracts cloaked message from [leastSignificantBits].
   static String? _getCloakedMessage(String leastSignificantBits) {
     String cloakedMessage = '';
 
