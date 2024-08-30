@@ -1,1 +1,0 @@
-enum EncryptionType { symmetric, asymmetric }

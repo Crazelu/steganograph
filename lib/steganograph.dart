@@ -1,4 +1,5 @@
+/// Dart library for hiding messages in images using the Least Significant Bit steganography.
+library steganograph;
+
 export 'src/steganograph.dart';
-export 'src/encryption_type.dart';
 export 'src/exceptions.dart';
-export 'src/keypair.dart';

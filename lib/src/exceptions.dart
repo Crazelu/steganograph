@@ -1,4 +1,4 @@
-abstract class SteganographException {}
+sealed class SteganographException {}
 
 class SteganographFileException implements SteganographException {
   final String message;
@@ -14,11 +14,11 @@ class SteganographFileException implements SteganographException {
   }
 }
 
-class SteganographDecodingException implements SteganographException {
+class SteganographCloakException implements SteganographException {
   final String message;
   final StackTrace? stackTrace;
 
-  SteganographDecodingException(this.message, [this.stackTrace]);
+  SteganographCloakException(this.message, [this.stackTrace]);
 
   String get trace => stackTrace.toString();
 
